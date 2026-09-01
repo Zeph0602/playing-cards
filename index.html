@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>playing cards</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="game-container">
+  <h1>playing cards</h1>
+
+  <!-- コントロールエリア -->
+  <div class="control-panel">
+    <button id="startBtn" class="action-btn primary-btn" onclick="startGame()">ゲームスタート</button>
+    <button class="action-btn secondary-btn" onclick="openRuleModal()">ルール説明</button>
+  </div>
+
+  <!-- ターン数とスコア表示 -->
+  <div class="status-bar">
+    <div class="turn-info">ROUND <span id="turnNum">1</span> / 10</div>
+    <div class="score-box">
+      <span>YOU: <strong id="pScore">0</strong> pt</span>
+      <span>CPU: <strong id="cScore">0</strong> pt</span>
+    </div>
+  </div>
+
+  <!-- 対戦フィールド -->
+  <div class="field">
+    <div class="card-display">
+      <div class="player-card">
+        <div class="card-label">YOU</div>
+        <div class="card-slot" id="pCardSlot">-</div>
+        <div class="card-effect-desc" id="pEffectDesc"></div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="player-card">
+        <div class="card-label">CPU</div>
+        <div class="card-slot" id="cCardSlot">-</div>
+        <div class="card-effect-desc" id="cEffectDesc"></div>
+      </div>
+    </div>
+    <div class="result-message" id="resultMsg">「ゲームスタート」を押してください</div>
+  </div>
+
+  <!-- 手札エリア -->
+  <div class="hand-section">
+    <h3>あなたの手札</h3>
+    <div class="hand-container" id="playerHand"></div>
+  </div>
+</div>
+
+<!-- ルール説明モーダル -->
+<div id="ruleModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeRuleModal()">&times;</span>
+    <h2>ゲームルール＆カード効果一覧</h2>
+    <p class="modal-intro">1〜10のカードを1枚ずつ出し合い、数字が大きい方が1pt獲得。10ラウンド終了時にptが多い方の勝利！</p>
+    
+    <table class="rule-table">
+      <thead>
+        <tr>
+          <th>数字</th>
+          <th>役職・効果</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>「10」に勝利する（※5の+2補正時も有効。3の効果は無効化。「8」には負ける）</td></tr>
+        <tr><td>2</td><td>このラウンドのみ「数字が小さい方」が勝利する</td></tr>
+        <tr><td>3</td><td>このカードで負けても、相手はポイントを獲得できない</td></tr>
+        <tr><td>4</td><td>このカードで勝利すると、相手のポイントを -1pt する</td></tr>
+        <tr><td>5</td><td>次のラウンドで自分が出すカードの数字を +2 する</td></tr>
+        <tr><td>6</td><td>このカードで勝利すると、獲得ポイントが +2pt になる</td></tr>
+        <tr><td>7</td><td>このラウンドの相手のカード効果をすべて無効化する</td></tr>
+        <tr><td>8</td><td>基本の数字が「12」として扱われる（1の特効は効かない）</td></tr>
+        <tr><td>9</td><td>次のラウンドを「強制引き分け」にする（勝利時効果も不発）</td></tr>
+        <tr><td>10</td><td>「2」のルール変更（小さい方が勝ち）を無視して通常勝負にする</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
