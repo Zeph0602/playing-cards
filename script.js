@@ -196,6 +196,15 @@ function showScreen(screenId) {
   saveData();
 }
 
+// --- ルール説明モーダル制御 ---
+function openRulesModal() {
+  document.getElementById('rulesModal').style.display = 'flex';
+}
+
+function closeRulesModal() {
+  document.getElementById('rulesModal').style.display = 'none';
+}
+
 // --- ガチャシステム ---
 function drawGacha(count) {
   const cost = count === 1 ? 5 : 50;
@@ -353,7 +362,7 @@ function selectMode(mode) {
 
 function createRoom() {
   document.getElementById('connectionStatus').textContent = "ID発行中...";
-  const roomId = Math.floor(1000 + Math.random() * 9000);
+  const roomId = 'cards-' + Math.floor(1000 + Math.random() * 9000);
   peer = new Peer(roomId);
 
   peer.on('open', (id) => {

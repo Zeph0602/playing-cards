@@ -6,7 +6,6 @@
   <title>playing cards</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   
-  <!-- Firebase SDK (Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -15,7 +14,6 @@
 </head>
 <body>
 
-  <!-- コイン & アカウント表示（常時上部） -->
   <div class="top-bar">
     <div id="authStatus" class="auth-status">
       <span id="userEmailDisplay">未ログイン</span>
@@ -24,12 +22,12 @@
     <div class="coin-display">💰 コイン: <span id="coinCount">0</span></div>
   </div>
 
-  <!-- 1. メインメニュー画面 -->
   <div id="startScreen" class="screen active">
     <div class="container">
       <h1 class="title">playing cards</h1>
       
       <div class="menu-nav">
+        <button class="nav-btn" onclick="openRulesModal()">📖 遊び方</button>
         <button class="nav-btn" onclick="showScreen('deckScreen')">🎴 デッキ編集</button>
         <button class="nav-btn gacha-nav-btn" onclick="showScreen('gachaScreen')">🎰 ガチャ</button>
       </div>
@@ -63,7 +61,6 @@
     </div>
   </div>
 
-  <!-- 2. デッキ編集画面 -->
   <div id="deckScreen" class="screen">
     <div class="container">
       <header class="screen-header">
@@ -84,7 +81,6 @@
     </div>
   </div>
 
-  <!-- 3. ガチャ画面 -->
   <div id="gachaScreen" class="screen">
     <div class="container">
       <header class="screen-header">
@@ -101,7 +97,6 @@
     </div>
   </div>
 
-  <!-- 4. 対戦画面 -->
   <div id="gameScreen" class="screen">
     <div class="container game-layout">
       <header class="game-header">
@@ -145,7 +140,6 @@
     </div>
   </div>
 
-  <!-- ログイン / アカウント作成モーダル -->
   <div id="authModal" class="modal" style="display: none;">
     <div class="modal-content">
       <h3 id="authTitle">アカウント ログイン / 登録</h3>
@@ -159,6 +153,27 @@
         <div id="authError" class="status-msg" style="color: #ef4444; margin-top: 8px;"></div>
       </div>
       <button class="close-btn" style="margin-top: 12px;" onclick="closeAuthModal()">閉じる</button>
+    </div>
+  </div>
+
+  <div id="rulesModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3>ゲームの遊び方</h3>
+      <div class="rules-body">
+        <div class="rule-item">
+          <strong>1. 基本ルール</strong>
+          <p>1〜10の手札を毎ラウンド1枚ずつ出し合い、数字（威力）が大きいプレイヤーが1ptを獲得する全10ラウンドの心理戦ゲームです。</p>
+        </div>
+        <div class="rule-item">
+          <strong>2. 効果カードとペナルティ</strong>
+          <p>デッキ編集で各カードに「特殊効果」を装着できます。強力な効果（R / SR / SSR）を装着するほどカードの元々の数字が引かれる「ペナルティ」が発生するため、威力と効果のバランスが重要になります。</p>
+        </div>
+        <div class="rule-item">
+          <strong>3. ガチャとデッキ強化</strong>
+          <p>対戦に勝利するとコイン（💰2C）を獲得できます。コインでガチャを回して新たな効果を入手し、デッキをカスタマイズして勝利を目指しましょう！</p>
+        </div>
+      </div>
+      <button class="close-btn" style="margin-top: 12px;" onclick="closeRulesModal()">閉じる</button>
     </div>
   </div>
 
