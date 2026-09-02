@@ -4,83 +4,115 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>playing cards</title>
+  <!-- PeerJSライブラリ -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="game-container">
-  <h1>playing cards</h1>
+  <!-- 1ページ目: スタート画面 -->
+  <div id="startScreen" class="screen active">
+    <div class="container">
+      <h1 class="title">playing cards</h1>
+      <p class="subtitle">1〜10のカードを駆使する心理戦カードゲーム</p>
 
-  <!-- コントロールエリア -->
-  <div class="control-panel">
-    <button id="startBtn" class="action-btn primary-btn" onclick="startGame()">ゲームスタート</button>
-    <button class="action-btn secondary-btn" onclick="openRuleModal()">ルール説明</button>
-  </div>
+      <!-- モード選択・対戦準備エリア -->
+      <div class="mode-card">
+        <h2>対戦モード選択</h2>
+        
+        <div class="mode-buttons">
+          <button class="mode-btn active" id="btnCpuMode" onclick="selectMode('cpu')">CPU対戦</button>
+          <button class="mode-btn" id="btnOnlineMode" onclick="selectMode('online')">オンライン対戦</button>
+        </div>
 
-  <!-- ターン数とスコア表示 -->
-  <div class="status-bar">
-    <div class="turn-info">ROUND <span id="turnNum">1</span> / 10</div>
-    <div class="score-box">
-      <span>YOU: <strong id="pScore">0</strong> pt</span>
-      <span>CPU: <strong id="cScore">0</strong> pt</span>
+        <!-- オンライン対戦用パネル -->
+        <div id="onlinePanel" class="online-panel" style="display: none;">
+          <div class="online-box">
+            <h3>部屋を作る（ホスト）</h3>
+            <button class="sub-btn" onclick="createRoom()">ルームIDを発行</button>
+            <div id="roomIdDisplay" class="room-id-box" style="display: none;"></div>
+          </div>
+
+          <div class="divider">OR</div>
+
+          <div class="online-box">
+            <h3>部屋に入る（ゲスト）</h3>
+            <div class="input-group">
+              <input type="text" id="joinRoomId" placeholder="ルームIDを入力" />
+              <button class="sub-btn" onclick="joinRoom()">参加</button>
+            </div>
+          </div>
+          
+          <div id="connectionStatus" class="status-msg"></div>
+        </div>
+      </div>
+
+      <div class="rule-card">
+        <h2>ルール概要</h2>
+        <div class="rule-grid">
+          <div class="rule-item"><span>1</span> 10に勝つ（8には無効）</div>
+          <div class="rule-item"><span>2</span> 小さい方が勝ち</div>
+          <div class="rule-item"><span>3</span> 負けても相手pt増えない</div>
+          <div class="rule-item"><span>4</span> 勝つと相手pt -1</div>
+          <div class="rule-item"><span>5</span> 次回の数字 +2</div>
+          <div class="rule-item"><span>6</span> 勝つと獲得pt +2</div>
+          <div class="rule-item"><span>7</span> 相手効果の無効化</div>
+          <div class="rule-item"><span>8</span> 数字「12」として扱う</div>
+          <div class="rule-item"><span>9</span> 次回を強制引き分け</div>
+          <div class="rule-item"><span>10</span> 2の効果を無視</div>
+        </div>
+      </div>
+
+      <button id="startBtn" class="start-btn" onclick="startGame()">CPU戦を開始する</button>
     </div>
   </div>
 
-  <!-- 対戦フィールド -->
-  <div class="field">
-    <div class="card-display">
-      <div class="player-card">
-        <div class="card-label">YOU</div>
-        <div class="card-slot" id="pCardSlot">-</div>
-        <div class="card-effect-desc" id="pEffectDesc"></div>
+  <!-- 2ページ目: 対戦画面 -->
+  <div id="gameScreen" class="screen">
+    <div class="container game-layout">
+      
+      <header class="game-header">
+        <button class="back-home-btn" onclick="goToStart()">← タイトルへ</button>
+        <div class="turn-badge">ROUND <span id="turnNum">1</span> / 10</div>
+      </header>
+
+      <div class="score-board">
+        <div class="score-player">
+          <span class="player-name">YOU</span>
+          <span class="score-val" id="pScore">0</span>
+        </div>
+        <div class="score-vs">VS</div>
+        <div class="score-player">
+          <span class="player-name" id="oppName">OPPONENT</span>
+          <span class="score-val" id="cScore">0</span>
+        </div>
       </div>
-      <div class="vs">VS</div>
-      <div class="player-card">
-        <div class="card-label">CPU</div>
-        <div class="card-slot" id="cCardSlot">-</div>
-        <div class="card-effect-desc" id="cEffectDesc"></div>
+
+      <div class="field">
+        <div class="card-display">
+          <div class="card-wrapper">
+            <div class="owner-label">YOU</div>
+            <div class="card-slot" id="pCardSlot">-</div>
+            <div class="effect-tag" id="pEffectDesc"></div>
+          </div>
+          <div class="vs-badge">VS</div>
+          <div class="card-wrapper">
+            <div class="owner-label" id="oppCardLabel">OPPONENT</div>
+            <div class="card-slot" id="cCardSlot">-</div>
+            <div class="effect-tag" id="cEffectDesc"></div>
+          </div>
+        </div>
+        <div class="result-message" id="resultMsg">カードを選択してください</div>
       </div>
+
+      <div class="hand-section">
+        <h3>あなたの手札</h3>
+        <div class="hand-container" id="playerHand"></div>
+      </div>
+
     </div>
-    <div class="result-message" id="resultMsg">「ゲームスタート」を押してください</div>
   </div>
 
-  <!-- 手札エリア -->
-  <div class="hand-section">
-    <h3>あなたの手札</h3>
-    <div class="hand-container" id="playerHand"></div>
-  </div>
-</div>
-
-<!-- ルール説明モーダル -->
-<div id="ruleModal" class="modal">
-  <div class="modal-content">
-    <span class="close-btn" onclick="closeRuleModal()">&times;</span>
-    <h2>ゲームルール＆カード効果一覧</h2>
-    <p class="modal-intro">1〜10のカードを1枚ずつ出し合い、数字が大きい方が1pt獲得。10ラウンド終了時にptが多い方の勝利！</p>
-    
-    <table class="rule-table">
-      <thead>
-        <tr>
-          <th>数字</th>
-          <th>役職・効果</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>1</td><td>「10」に勝利する（※5の+2補正時も有効。3の効果は無効化。「8」には負ける）</td></tr>
-        <tr><td>2</td><td>このラウンドのみ「数字が小さい方」が勝利する</td></tr>
-        <tr><td>3</td><td>このカードで負けても、相手はポイントを獲得できない</td></tr>
-        <tr><td>4</td><td>このカードで勝利すると、相手のポイントを -1pt する</td></tr>
-        <tr><td>5</td><td>次のラウンドで自分が出すカードの数字を +2 する</td></tr>
-        <tr><td>6</td><td>このカードで勝利すると、獲得ポイントが +2pt になる</td></tr>
-        <tr><td>7</td><td>このラウンドの相手のカード効果をすべて無効化する</td></tr>
-        <tr><td>8</td><td>基本の数字が「12」として扱われる（1の特効は効かない）</td></tr>
-        <tr><td>9</td><td>次のラウンドを「強制引き分け」にする（勝利時効果も不発）</td></tr>
-        <tr><td>10</td><td>「2」のルール変更（小さい方が勝ち）を無視して通常勝負にする</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
