@@ -53,7 +53,7 @@ const EFFECT_MASTER = {
   "SSR_4": { name: "大逆転", desc: "3pt差以上離れていれば無条件勝利", rarity: "SSR", penalty: 4, code: "SSR_4" }
 };
 
-// 初期所持データ（各アイテムに固有IDを付与）
+// 初期所持データ
 function createDefaultUserData() {
   const inventory = [];
   const deck = {};
@@ -67,7 +67,6 @@ function createDefaultUserData() {
 
 let userData = createDefaultUserData();
 
-// 旧構造データの自動マイグレーション
 function sanitizeUserData() {
   if (!userData.inventory) {
     userData = createDefaultUserData();
@@ -98,7 +97,7 @@ function sanitizeUserData() {
   }
 }
 
-// --- Firebase Authentication 監視 ---
+// 認証監視
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   const statusLabel = document.getElementById('userEmailDisplay');
@@ -155,7 +154,6 @@ async function loginUser() {
   }
 }
 
-// データ保存・読み込み
 async function saveData() {
   document.getElementById('coinCount').textContent = userData.coins;
   if (currentUser) {
@@ -188,7 +186,6 @@ function loadLocalData() {
   document.getElementById('coinCount').textContent = userData.coins;
 }
 
-// 画面遷移
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(screenId).classList.add('active');
@@ -196,7 +193,6 @@ function showScreen(screenId) {
   saveData();
 }
 
-// --- ルール説明モーダル制御 ---
 function openRulesModal() {
   document.getElementById('rulesModal').style.display = 'flex';
 }
@@ -205,7 +201,7 @@ function closeRulesModal() {
   document.getElementById('rulesModal').style.display = 'none';
 }
 
-// --- ガチャシステム ---
+// ガチャ
 function drawGacha(count) {
   const cost = count === 1 ? 5 : 50;
   if (userData.coins < cost) return alert("コインが足りません！");
@@ -245,7 +241,7 @@ function drawGacha(count) {
   saveData();
 }
 
-// --- デッキ編集 ---
+// デッキ編集
 let selectedSlot = null;
 
 function renderDeckScreen() {
@@ -305,7 +301,7 @@ function openEffectModal(cardNum) {
     if (equippedOnCard === cardNum) {
       statusBadge = `<span class="status-badge current">装着中</span>`;
     } else if (equippedOnCard !== null) {
-      statusBadge = `<span class="status-badge other">カード${equippedOnCard}に装着中 (付け替え)</span>`;
+      statusBadge = `<span class="status-badge other">カード${equippedOnCard}に装着中</span>`;
     }
 
     const div = document.createElement('div');
@@ -342,7 +338,7 @@ function closeModal() {
   document.getElementById('effectSelectModal').style.display = 'none';
 }
 
-// --- 対戦エンジン (CPU / Online) ---
+// 対戦エンジン
 let gameMode = 'cpu';
 let peer = null, conn = null;
 let pHand = [], cHand = [];
@@ -360,14 +356,16 @@ function selectMode(mode) {
   document.getElementById('startBtn').style.display = mode === 'cpu' ? 'block' : 'none';
 }
 
+// ルームID生成（数字6桁のみに変更）
 function createRoom() {
   document.getElementById('connectionStatus').textContent = "ID発行中...";
-  const roomId = 'cards-' + Math.floor(1000 + Math.random() * 9000);
+  const roomId = Math.floor(100000 + Math.random() * 900000).toString();
   peer = new Peer(roomId);
 
   peer.on('open', (id) => {
     const display = document.getElementById('roomIdDisplay');
-    display.style.display = 'block'; display.textContent = `ルームID: ${id}`;
+    display.style.display = 'block'; 
+    display.textContent = `ルームID: ${id}`;
     document.getElementById('connectionStatus').textContent = "対戦相手の接続待ち...";
   });
 
@@ -477,16 +475,38 @@ function checkRoundResolve() {
   if (myChoice !== null && oppChoice !== null) resolveRound();
 }
 
+// 全カード効果に対応した対戦判定ロジック
 function resolveRound() {
   let pVal = myChoice.realVal + pNextBonus;
   let cVal = oppChoice.realVal + cNextBonus;
   pNextBonus = 0; cNextBonus = 0;
 
-  if (myChoice.effect.code === "DEF_8") pVal = 12;
-  if (oppChoice.effect.code === "DEF_8") cVal = 12;
-
   let pEffActive = oppChoice.effect.code !== "DEF_7";
   let cEffActive = myChoice.effect.code !== "DEF_7";
+
+  // --- 1. 数字変更系効果の適用 ---
+  if (pEffActive) {
+    if (myChoice.effect.code === "DEF_8") pVal = 12;
+    if (myChoice.effect.code === "N_2" && cVal % 2 === 0) pVal += 3;
+    if (myChoice.effect.code === "N_3" && cVal % 2 !== 0) pVal += 3;
+    if (myChoice.effect.code === "R_3" && pScore < cScore) pVal += 5;
+    if (myChoice.effect.code === "R_4") cVal -= 3;
+  }
+  if (cEffActive) {
+    if (oppChoice.effect.code === "DEF_8") cVal = 12;
+    if (oppChoice.effect.code === "N_2" && pVal % 2 === 0) cVal += 3;
+    if (oppChoice.effect.code === "N_3" && pVal % 2 !== 0) cVal += 3;
+    if (oppChoice.effect.code === "R_3" && cScore < pScore) cVal += 5;
+    if (oppChoice.effect.code === "R_4") pVal -= 3;
+  }
+
+  // SSR_1 スワップ
+  if (myChoice.effect.code === "SSR_1" && pEffActive) {
+    const temp = pVal; pVal = cVal; cVal = temp;
+  }
+  if (oppChoice.effect.code === "SSR_1" && cEffActive) {
+    const temp = pVal; pVal = cVal; cVal = temp;
+  }
 
   document.getElementById('pCardSlot').textContent = pVal;
   document.getElementById('cCardSlot').textContent = cVal;
@@ -499,25 +519,81 @@ function resolveRound() {
     resultMsg = "強制引き分け！";
     isForceDrawNext = false;
   } else {
-    let winner = null;
+    let winner = null; // 'P', 'C', 'DRAW'
 
-    if (pVal === cVal) winner = 'DRAW';
-    else winner = pVal > cVal ? 'P' : 'C';
+    // --- 2. 勝敗判定（特殊勝利・通常勝利） ---
+    // N_5 判定無効
+    if ((myChoice.effect.code === "N_5" && pEffActive) || (oppChoice.effect.code === "N_5" && cEffActive)) {
+      winner = 'DRAW';
+      resultMsg = "判定無効（引き分け）";
+    }
+    // SSR_2 ジャイアントキリング (相手が5以上大きい)
+    else if (myChoice.effect.code === "SSR_2" && pEffActive && (cVal - pVal >= 5)) winner = 'P';
+    else if (oppChoice.effect.code === "SSR_2" && cEffActive && (pVal - cVal >= 5)) winner = 'C';
+    // SSR_4 大逆転 (3pt差以上負けている)
+    else if (myChoice.effect.code === "SSR_4" && pEffActive && (cScore - pScore >= 3)) winner = 'P';
+    else if (oppChoice.effect.code === "SSR_4" && cEffActive && (pScore - cScore >= 3)) winner = 'C';
+    // DEF_1 (10に勝つ)
+    else if (myChoice.effect.code === "DEF_1" && pEffActive && oppChoice.baseNum === 10) winner = 'P';
+    else if (oppChoice.effect.code === "DEF_1" && cEffActive && myChoice.baseNum === 10) winner = 'C';
+    // DEF_2 (小が勝ち) ※DEF_10で無効化可能
+    else if ((myChoice.effect.code === "DEF_2" && pEffActive && oppChoice.effect.code !== "DEF_10") ||
+             (oppChoice.effect.code === "DEF_2" && cEffActive && myChoice.effect.code !== "DEF_10")) {
+      if (pVal === cVal) winner = 'DRAW';
+      else winner = pVal < cVal ? 'P' : 'C';
+    }
+    // 通常判定
+    else {
+      if (pVal === cVal) winner = 'DRAW';
+      else winner = pVal > cVal ? 'P' : 'C';
+    }
 
-    if (myChoice.effect.code === "DEF_1" && oppChoice.baseNum === 10 && pEffActive) winner = 'P';
-    if (oppChoice.effect.code === "DEF_1" && myChoice.baseNum === 10 && cEffActive) winner = 'C';
+    // --- 3. 獲得ポイント計算および追加効果 ---
+    let pGain = 0, cGain = 0;
 
     if (winner === 'P') {
-      pScore += 1;
+      pGain = 1;
+      if (pEffActive) {
+        if (myChoice.effect.code === "R_1" || myChoice.effect.code === "DEF_6") pGain += 1;
+        if (myChoice.effect.code === "SR_3" && currentRound >= 8) pGain += 3;
+        if (myChoice.effect.code === "SR_1") { pGain += 1; cScore = Math.max(0, cScore - 1); }
+        if (myChoice.effect.code === "DEF_4") cScore = Math.max(0, cScore - 1);
+      }
+      if (cEffActive && oppChoice.effect.code === "DEF_3") pGain = 0;
+      if (cEffActive && oppChoice.effect.code === "SR_4") { cGain += pGain; pGain = 0; }
       resultMsg = "あなたの勝ち！";
+
     } else if (winner === 'C') {
-      cScore += 1;
+      cGain = 1;
+      if (cEffActive) {
+        if (oppChoice.effect.code === "R_1" || oppChoice.effect.code === "DEF_6") cGain += 1;
+        if (oppChoice.effect.code === "SR_3" && currentRound >= 8) cGain += 3;
+        if (oppChoice.effect.code === "SR_1") { cGain += 1; pScore = Math.max(0, pScore - 1); }
+        if (oppChoice.effect.code === "DEF_4") pScore = Math.max(0, pScore - 1);
+      }
+      if (pEffActive && myChoice.effect.code === "DEF_3") cGain = 0;
+      if (pEffActive && myChoice.effect.code === "SR_4") { pGain += cGain; cGain = 0; }
       resultMsg = "相手の勝ち！";
-    } else {
-      resultMsg = "引き分け！";
+
+    } else { // DRAW
+      if (pEffActive && myChoice.effect.code === "N_1") pGain += 1;
+      if (cEffActive && oppChoice.effect.code === "N_1") cGain += 1;
+      if (!resultMsg) resultMsg = "引き分け！";
     }
+
+    // SR_5 道連れ（負けた場合）
+    if (winner === 'C' && pEffActive && myChoice.effect.code === "SR_5") {
+      pScore = Math.max(0, pScore - 1); cScore = Math.max(0, cScore - 1);
+    }
+    if (winner === 'P' && cEffActive && oppChoice.effect.code === "SR_5") {
+      pScore = Math.max(0, pScore - 1); cScore = Math.max(0, cScore - 1);
+    }
+
+    pScore += pGain;
+    cScore += cGain;
   }
 
+  // --- 4. 次ターンへのフラグ設定 ---
   if (myChoice.effect.code === "DEF_5" && pEffActive) pNextBonus = 2;
   if (oppChoice.effect.code === "DEF_5" && cEffActive) cNextBonus = 2;
   if ((myChoice.effect.code === "DEF_9" && pEffActive) || (oppChoice.effect.code === "DEF_9" && cEffActive)) {
