@@ -1,4 +1,4 @@
-// Firebaseの設定情報（ご自身のFirebase Consoleの設定値に差し替えてください）
+// Firebase設定情報（ご自身のConsoleの設定に差し替えてください）
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -8,7 +8,6 @@ const firebaseConfig = {
   appId: "YOUR_APP_ID"
 };
 
-// Firebase初期化
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
@@ -53,7 +52,6 @@ const EFFECT_MASTER = {
   "SSR_4": { name: "大逆転", desc: "3pt差以上離れていれば無条件勝利", rarity: "SSR", penalty: 4, code: "SSR_4" }
 };
 
-// 初期所持データ
 function createDefaultUserData() {
   const inventory = [];
   const deck = {};
@@ -193,23 +191,45 @@ function showScreen(screenId) {
   saveData();
 }
 
-function openRulesModal() {
-  document.getElementById('rulesModal').style.display = 'flex';
-}
+function openRulesModal() { document.getElementById('rulesModal').style.display = 'flex'; }
+function closeRulesModal() { document.getElementById('rulesModal').style.display = 'none'; }
 
-function closeRulesModal() {
-  document.getElementById('rulesModal').style.display = 'none';
-}
-
-// ガチャ
-function drawGacha(count) {
+// ガラポンガチャ処理
+async function drawGacha(count) {
   const cost = count === 1 ? 5 : 50;
   if (userData.coins < cost) return alert("コインが足りません！");
+  
   userData.coins -= cost;
+  saveData();
 
-  const resultsContainer = document.getElementById('gachaResults');
-  resultsContainer.innerHTML = '';
+  // 結果オープン用領域をリセット
+  document.getElementById('gachaRevealArea').style.display = 'none';
+  document.getElementById('gachaResults').innerHTML = '';
+
+  const modal = document.getElementById('garaponModal');
+  const rotator = document.getElementById('garaponRotator');
+  const ballContainer = document.getElementById('garaponBallContainer');
+  const status = document.getElementById('garaponStatus');
+  const closeBtn = document.getElementById('garaponCloseBtn');
+  
+  ballContainer.innerHTML = '';
+  closeBtn.style.display = 'none';
+  status.textContent = 'ガラポンを回しています...';
+
+  // アニメーション状態のリセット（前回実行時のクラスを一度外す）
+  rotator.classList.remove('spinning');
+
+  // モーダルを表示
+  modal.style.display = 'flex';
+
+  // ブラウザの描画タイミングを強制更新（リフロー発生）
+  void rotator.offsetWidth;
+
+  // 3回転アニメーションを開始
+  rotator.classList.add('spinning');
+
   const gachaPool = Object.keys(EFFECT_MASTER).filter(k => !k.startsWith('DEF'));
+  const pulledItems = [];
 
   for (let i = 0; i < count; i++) {
     const rand = Math.random() * 100;
@@ -226,19 +246,81 @@ function drawGacha(count) {
       code: pulledCode
     };
     userData.inventory.push(newItem);
-
-    const item = EFFECT_MASTER[pulledCode];
-    const cardEl = document.createElement('div');
-    cardEl.className = 'gacha-card';
-    cardEl.innerHTML = `
-      <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
-      <div style="font-weight:bold; margin: 4px 0;">${item.name}</div>
-      <div style="font-size:10px; color:#94a3b8;">${item.desc}</div>
-      <div style="font-size:10px; color:#ef4444;">数字 -${item.penalty}</div>
-    `;
-    resultsContainer.appendChild(cardEl);
+    pulledItems.push(EFFECT_MASTER[pulledCode]);
   }
   saveData();
+
+  // 2秒間の回転完了を待機
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  // カプセル排出演出
+  status.textContent = 'カプセルが排出されました！';
+  for (let i = 0; i < pulledItems.length; i++) {
+    const item = pulledItems[i];
+    const capsule = document.createElement('div');
+    capsule.className = `garapon-capsule capsule-${item.rarity}`;
+    ballContainer.appendChild(capsule);
+
+    await new Promise(resolve => setTimeout(resolve, count === 1 ? 150 : 60));
+    capsule.classList.add('drop');
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 300));
+  status.textContent = '結果を確認しましょう！';
+  closeBtn.style.display = 'inline-block';
+
+  // バックグラウンドで「伏せカード」を描画
+  renderGachaResults(pulledItems);
+}
+
+function renderGachaResults(items) {
+  const resultsContainer = document.getElementById('gachaResults');
+  resultsContainer.innerHTML = '';
+  
+  items.forEach(item => {
+    const container = document.createElement('div');
+    container.className = 'card-flip-container';
+    container.onclick = () => flipCard(container);
+
+    container.innerHTML = `
+      <div class="card-flipper">
+        <!-- 裏面（非開示） -->
+        <div class="card-back">
+          <div class="card-back-inner">🃏</div>
+          <div class="card-back-text">TAP TO REVEAL</div>
+        </div>
+        <!-- 表面（開示後） -->
+        <div class="card-front">
+          <span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>
+          <div style="font-weight:bold; margin: 4px 0; font-size:11px;">${item.name}</div>
+          <div style="font-size:9px; color:#94a3b8;">${item.desc}</div>
+          <div style="font-size:9px; color:#ef4444;">数字 -${item.penalty}</div>
+        </div>
+      </div>
+    `;
+    resultsContainer.appendChild(container);
+  });
+}
+
+// 1枚ずつめくる処理
+function flipCard(containerEl) {
+  const flipper = containerEl.querySelector('.card-flipper');
+  flipper.classList.add('flipped');
+}
+
+// ボタンを押して一括でカードを裏返す処理
+function revealAllCards() {
+  const flippers = document.querySelectorAll('.card-flipper');
+  flippers.forEach((flipper, index) => {
+    setTimeout(() => {
+      flipper.classList.add('flipped');
+    }, index * 80);
+  });
+}
+
+function closeGaraponModal() {
+  document.getElementById('garaponModal').style.display = 'none';
+  document.getElementById('gachaRevealArea').style.display = 'block';
 }
 
 // デッキ編集
@@ -356,7 +438,6 @@ function selectMode(mode) {
   document.getElementById('startBtn').style.display = mode === 'cpu' ? 'block' : 'none';
 }
 
-// ルームID生成（数字6桁のみに変更）
 function createRoom() {
   document.getElementById('connectionStatus').textContent = "ID発行中...";
   const roomId = Math.floor(100000 + Math.random() * 900000).toString();
@@ -475,7 +556,6 @@ function checkRoundResolve() {
   if (myChoice !== null && oppChoice !== null) resolveRound();
 }
 
-// 全カード効果に対応した対戦判定ロジック
 function resolveRound() {
   let pVal = myChoice.realVal + pNextBonus;
   let cVal = oppChoice.realVal + cNextBonus;
@@ -484,7 +564,6 @@ function resolveRound() {
   let pEffActive = oppChoice.effect.code !== "DEF_7";
   let cEffActive = myChoice.effect.code !== "DEF_7";
 
-  // --- 1. 数字変更系効果の適用 ---
   if (pEffActive) {
     if (myChoice.effect.code === "DEF_8") pVal = 12;
     if (myChoice.effect.code === "N_2" && cVal % 2 === 0) pVal += 3;
@@ -500,7 +579,6 @@ function resolveRound() {
     if (oppChoice.effect.code === "R_4") pVal -= 3;
   }
 
-  // SSR_1 スワップ
   if (myChoice.effect.code === "SSR_1" && pEffActive) {
     const temp = pVal; pVal = cVal; cVal = temp;
   }
@@ -519,36 +597,28 @@ function resolveRound() {
     resultMsg = "強制引き分け！";
     isForceDrawNext = false;
   } else {
-    let winner = null; // 'P', 'C', 'DRAW'
+    let winner = null;
 
-    // --- 2. 勝敗判定（特殊勝利・通常勝利） ---
-    // N_5 判定無効
     if ((myChoice.effect.code === "N_5" && pEffActive) || (oppChoice.effect.code === "N_5" && cEffActive)) {
       winner = 'DRAW';
       resultMsg = "判定無効（引き分け）";
     }
-    // SSR_2 ジャイアントキリング (相手が5以上大きい)
     else if (myChoice.effect.code === "SSR_2" && pEffActive && (cVal - pVal >= 5)) winner = 'P';
     else if (oppChoice.effect.code === "SSR_2" && cEffActive && (pVal - cVal >= 5)) winner = 'C';
-    // SSR_4 大逆転 (3pt差以上負けている)
     else if (myChoice.effect.code === "SSR_4" && pEffActive && (cScore - pScore >= 3)) winner = 'P';
     else if (oppChoice.effect.code === "SSR_4" && cEffActive && (pScore - cScore >= 3)) winner = 'C';
-    // DEF_1 (10に勝つ)
     else if (myChoice.effect.code === "DEF_1" && pEffActive && oppChoice.baseNum === 10) winner = 'P';
     else if (oppChoice.effect.code === "DEF_1" && cEffActive && myChoice.baseNum === 10) winner = 'C';
-    // DEF_2 (小が勝ち) ※DEF_10で無効化可能
     else if ((myChoice.effect.code === "DEF_2" && pEffActive && oppChoice.effect.code !== "DEF_10") ||
              (oppChoice.effect.code === "DEF_2" && cEffActive && myChoice.effect.code !== "DEF_10")) {
       if (pVal === cVal) winner = 'DRAW';
       else winner = pVal < cVal ? 'P' : 'C';
     }
-    // 通常判定
     else {
       if (pVal === cVal) winner = 'DRAW';
       else winner = pVal > cVal ? 'P' : 'C';
     }
 
-    // --- 3. 獲得ポイント計算および追加効果 ---
     let pGain = 0, cGain = 0;
 
     if (winner === 'P') {
@@ -575,13 +645,12 @@ function resolveRound() {
       if (pEffActive && myChoice.effect.code === "SR_4") { pGain += cGain; cGain = 0; }
       resultMsg = "相手の勝ち！";
 
-    } else { // DRAW
+    } else {
       if (pEffActive && myChoice.effect.code === "N_1") pGain += 1;
       if (cEffActive && oppChoice.effect.code === "N_1") cGain += 1;
       if (!resultMsg) resultMsg = "引き分け！";
     }
 
-    // SR_5 道連れ（負けた場合）
     if (winner === 'C' && pEffActive && myChoice.effect.code === "SR_5") {
       pScore = Math.max(0, pScore - 1); cScore = Math.max(0, cScore - 1);
     }
@@ -593,7 +662,6 @@ function resolveRound() {
     cScore += cGain;
   }
 
-  // --- 4. 次ターンへのフラグ設定 ---
   if (myChoice.effect.code === "DEF_5" && pEffActive) pNextBonus = 2;
   if (oppChoice.effect.code === "DEF_5" && cEffActive) cNextBonus = 2;
   if ((myChoice.effect.code === "DEF_9" && pEffActive) || (oppChoice.effect.code === "DEF_9" && cEffActive)) {

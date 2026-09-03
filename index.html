@@ -3,177 +3,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>playing cards</title>
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
+  <title>カード数字対戦</title>
   <link rel="stylesheet" href="style.css">
+  
+  <!-- Firebase (Compat版) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  
+  <!-- PeerJS -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
-  <div class="top-bar">
-    <div id="authStatus" class="auth-status">
-      <span id="userEmailDisplay">未ログイン</span>
-      <button id="authBtn" class="auth-btn" onclick="handleAuthAction()">ログイン</button>
+  <!-- ヘッダー -->
+  <header>
+    <div class="user-info">
+      <span id="userEmailDisplay">未ログイン (ローカル保存)</span>
+      <button id="authBtn" class="sub-btn" onclick="handleAuthAction()">ログイン</button>
     </div>
-    <div class="coin-display">💰 コイン: <span id="coinCount">0</span></div>
-  </div>
+    <div class="coin-info">
+      💰 所持コイン: <span id="coinCount">0</span>
+    </div>
+  </header>
 
-  <div id="startScreen" class="screen active">
-    <div class="container">
-      <h1 class="title">playing cards</h1>
-      
-      <div class="menu-nav">
-        <button class="nav-btn" onclick="openRulesModal()">📖 遊び方</button>
-        <button class="nav-btn" onclick="showScreen('deckScreen')">🎴 デッキ編集</button>
-        <button class="nav-btn gacha-nav-btn" onclick="showScreen('gachaScreen')">🎰 ガチャ</button>
+  <!-- メインコンテナ -->
+  <main class="container">
+    
+    <!-- 1. スタート画面 -->
+    <section id="startScreen" class="screen active">
+      <h1>カード数字対戦</h1>
+      <p class="subtitle">手札の「数字」と「効果」で相手を圧倒せよ！</p>
+
+      <div class="mode-select">
+        <button id="btnCpuMode" class="mode-btn active" onclick="selectMode('cpu')">CPU対戦</button>
+        <button id="btnOnlineMode" class="mode-btn" onclick="selectMode('online')">オンライン対戦</button>
       </div>
 
-      <div class="mode-card">
-        <h2>対戦モード選択</h2>
-        <div class="mode-buttons">
-          <button class="mode-btn active" id="btnCpuMode" onclick="selectMode('cpu')">CPU対戦</button>
-          <button class="mode-btn" id="btnOnlineMode" onclick="selectMode('online')">オンライン対戦</button>
+      <!-- オンライン対戦用パネル -->
+      <div id="onlinePanel" style="display: none;" class="online-panel">
+        <div class="online-group">
+          <button class="action-btn" onclick="createRoom()">ルームを作成</button>
+          <div id="roomIdDisplay" class="room-id-box" style="display: none;"></div>
         </div>
-
-        <div id="onlinePanel" class="online-panel" style="display: none;">
-          <div class="online-box">
-            <h3>部屋を作る</h3>
-            <button class="sub-btn" onclick="createRoom()">ID発行</button>
-            <div id="roomIdDisplay" class="room-id-box" style="display: none;"></div>
-          </div>
-          <div class="divider">OR</div>
-          <div class="online-box">
-            <h3>部屋に入る</h3>
-            <div class="input-group">
-              <input type="text" id="joinRoomId" placeholder="ルームID" />
-              <button class="sub-btn" onclick="joinRoom()">参加</button>
-            </div>
-          </div>
-          <div id="connectionStatus" class="status-msg"></div>
+        <div class="online-divider">OR</div>
+        <div class="online-group">
+          <input type="text" id="joinRoomId" placeholder="6桁のルームIDを入力">
+          <button class="action-btn secondary" onclick="joinRoom()">ルームに参加</button>
         </div>
+        <div id="connectionStatus" class="status-msg"></div>
       </div>
 
-      <button id="startBtn" class="start-btn" onclick="startGame()">対戦開始！</button>
-    </div>
-  </div>
-
-  <div id="deckScreen" class="screen">
-    <div class="container">
-      <header class="screen-header">
-        <button class="back-btn" onclick="showScreen('startScreen')">← メニューへ</button>
-        <h2>デッキ編集</h2>
-      </header>
-      <p class="sub-desc">1〜10のカードに装着する効果を選択してください。（各効果カードは1つの数字にのみ装着可能）</p>
+      <button id="startBtn" class="main-btn" onclick="startGame()">対戦開始</button>
       
-      <div class="deck-grid" id="deckGrid"></div>
-
-      <div id="effectSelectModal" class="modal" style="display: none;">
-        <div class="modal-content">
-          <h3>装着する効果を選択 (カード <span id="targetCardNum"></span>)</h3>
-          <div class="inventory-list" id="inventoryList"></div>
-          <button class="close-btn" onclick="closeModal()">キャンセル</button>
-        </div>
+      <div class="sub-menu">
+        <button class="sub-btn" onclick="showScreen('deckScreen')">🎴 デッキ編集</button>
+        <button class="sub-btn" onclick="showScreen('gachaScreen')">🎰 ガチャ</button>
+        <button class="sub-btn" onclick="openRulesModal()">📖 ルール説明</button>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div id="gachaScreen" class="screen">
-    <div class="container">
-      <header class="screen-header">
-        <button class="back-btn" onclick="showScreen('startScreen')">← メニューへ</button>
-        <h2>カード効果ガチャ</h2>
-      </header>
-      
+    <!-- 2. デッキ編集画面 -->
+    <section id="deckScreen" class="screen">
+      <h2>デッキ編集</h2>
+      <p style="font-size: 12px; color: #94a3b8; text-align: center;">ベースカード（1〜10）に獲得した効果をセットできます</p>
+      <div id="deckGrid" class="deck-grid"></div>
+      <button class="sub-btn back-btn" onclick="showScreen('startScreen')">戻る</button>
+    </section>
+
+    <!-- 3. ガチャ画面 -->
+    <section id="gachaScreen" class="screen">
+      <h2>カード効果ガチャ</h2>
       <div class="gacha-actions">
-        <button class="gacha-btn" onclick="drawGacha(1)">1連ガチャ (5C)</button>
-        <button class="gacha-btn special" onclick="drawGacha(11)">11連ガチャ (50C)</button>
+        <button class="main-btn" onclick="drawGacha(1)">1連ガチャ (💰 5)</button>
+        <button class="main-btn" onclick="drawGacha(11)">11連ガチャ (💰 50)</button>
       </div>
 
-      <div class="gacha-results" id="gachaResults"></div>
-    </div>
-  </div>
+      <!-- 結果オープンボタンエリア -->
+      <div id="gachaRevealArea" style="display: none; margin-top: 10px; text-align: center;">
+        <button id="revealAllBtn" class="main-btn" style="background-color: #f59e0b;" onclick="revealAllCards()">✨ カードをすべてめくる</button>
+      </div>
 
-  <div id="gameScreen" class="screen">
-    <div class="container game-layout">
-      <header class="game-header">
-        <button class="back-home-btn" onclick="goToStart()">← 参戦離脱</button>
-        <div class="turn-badge">ROUND <span id="turnNum">1</span> / 10</div>
-      </header>
+      <div id="gachaResults" class="gacha-results" style="margin-top: 12px;"></div>
+      <button class="sub-btn back-btn" onclick="showScreen('startScreen')">戻る</button>
+    </section>
 
-      <div class="score-board">
-        <div class="score-player">
-          <span class="player-name">YOU</span>
-          <span class="score-val" id="pScore">0</span>
-        </div>
-        <div class="score-vs">VS</div>
-        <div class="score-player">
-          <span class="player-name" id="oppName">CPU</span>
-          <span class="score-val" id="cScore">0</span>
+    <!-- 4. ゲーム対戦画面 -->
+    <section id="gameScreen" class="screen">
+      <div class="game-header">
+        <div>ROUND <span id="turnNum">1</span> / 10</div>
+        <div class="scoreboard">
+          <span>YOU: <strong id="pScore">0</strong></span>
+          <span class="vs">VS</span>
+          <span>OPP: <strong id="cScore">0</strong></span>
         </div>
       </div>
 
-      <div class="field">
-        <div class="card-display">
-          <div class="card-wrapper">
-            <div class="owner-label">YOU</div>
-            <div class="card-slot" id="pCardSlot">-</div>
-            <div class="effect-tag" id="pEffectDesc"></div>
-          </div>
-          <div class="vs-badge">VS</div>
-          <div class="card-wrapper">
-            <div class="owner-label" id="oppCardLabel">CPU</div>
-            <div class="card-slot" id="cCardSlot">-</div>
-            <div class="effect-tag" id="cEffectDesc"></div>
-          </div>
+      <div class="battle-field">
+        <div class="card-slot enemy">
+          <div class="slot-label">相手のカード</div>
+          <div id="cCardSlot" class="card-display">-</div>
+          <div id="cEffectDesc" class="effect-label">-</div>
         </div>
-        <div class="result-message" id="resultMsg">カードを選択してください</div>
+
+        <div id="resultMsg" class="result-message">カードを選択してください</div>
+
+        <div class="card-slot player">
+          <div class="slot-label">あなたのカード</div>
+          <div id="pCardSlot" class="card-display">-</div>
+          <div id="pEffectDesc" class="effect-label">-</div>
+        </div>
       </div>
 
-      <div class="hand-section">
-        <h3>あなたの手札</h3>
-        <div class="hand-container" id="playerHand"></div>
-      </div>
-    </div>
-  </div>
+      <div id="playerHand" class="player-hand"></div>
+      <button class="sub-btn surrender-btn" onclick="goToStart()">参戦・退出</button>
+    </section>
 
+  </main>
+
+  <!-- モーダル各種 -->
   <div id="authModal" class="modal" style="display: none;">
     <div class="modal-content">
-      <h3 id="authTitle">アカウント ログイン / 登録</h3>
-      <div class="auth-form">
-        <input type="email" id="authEmail" placeholder="メールアドレス" class="auth-input">
-        <input type="password" id="authPassword" placeholder="パスワード（6文字以上）" class="auth-input">
-        <div class="auth-btn-group">
-          <button class="sub-btn" onclick="loginUser()">ログイン</button>
-          <button class="sub-btn register-btn" onclick="registerUser()">新規登録</button>
-        </div>
-        <div id="authError" class="status-msg" style="color: #ef4444; margin-top: 8px;"></div>
+      <h3>アカウント設定</h3>
+      <input type="email" id="authEmail" placeholder="メールアドレス">
+      <input type="password" id="authPassword" placeholder="パスワード">
+      <div id="authError" class="error-msg"></div>
+      <div class="modal-actions">
+        <button class="main-btn" onclick="loginUser()">ログイン</button>
+        <button class="sub-btn" onclick="registerUser()">新規登録</button>
       </div>
-      <button class="close-btn" style="margin-top: 12px;" onclick="closeAuthModal()">閉じる</button>
+      <button class="close-btn" onclick="closeAuthModal()">✕</button>
+    </div>
+  </div>
+
+  <div id="effectSelectModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3>ベースカード <span id="targetCardNum"></span> の効果セット</h3>
+      <div id="inventoryList" class="inventory-list"></div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
     </div>
   </div>
 
   <div id="rulesModal" class="modal" style="display: none;">
     <div class="modal-content">
-      <h3>ゲームの遊び方</h3>
-      <div class="rules-body">
-        <div class="rule-item">
-          <strong>1. 基本ルール</strong>
-          <p>1〜10の手札を毎ラウンド1枚ずつ出し合い、数字（威力）が大きいプレイヤーが1ptを獲得する全10ラウンドの心理戦ゲームです。</p>
+      <h3>ゲームのルール</h3>
+      <ul style="text-align: left; font-size: 13px; line-height: 1.6; color: #cbd5e1;">
+        <li>1〜10のカードを毎ターン1枚ずつ出し合って勝負します（全10ラウンド）。</li>
+        <li>数字の大きい方が勝利し、勝利したプレイヤーが1ポイント獲得します。</li>
+        <li>ガチャで獲得した「特殊効果」をカードに装備できます。</li>
+        <li>強烈な効果を持つカードほど「数字ペナルティ」が発生します。</li>
+        <li>10ラウンド終了時、獲得ポイントが多い方の勝利です（勝利報酬: 2コイン）。</li>
+      </ul>
+      <button class="main-btn" onclick="closeRulesModal()">閉じる</button>
+    </div>
+  </div>
+
+  <!-- ガラポン（新井式回転抽選器）モーダル -->
+  <div id="garaponModal" class="modal" style="display: none;">
+    <div class="modal-content garapon-modal-content">
+      <h3 id="garaponTitle">ガラポン抽選中...</h3>
+      
+      <div class="garapon-stage">
+        <!-- ドラムとハンドルを軸中心に回転させる構造 -->
+        <div id="garaponRotator" class="garapon-rotator">
+          <div class="garapon-drum">
+            <div class="garapon-center"></div>
+          </div>
+          <div class="garapon-handle"></div>
         </div>
-        <div class="rule-item">
-          <strong>2. 効果カードとペナルティ</strong>
-          <p>デッキ編集で各カードに「特殊効果」を装着できます。強力な効果（R / SR / SSR）を装着するほどカードの元々の数字が引かれる「ペナルティ」が発生するため、威力と効果のバランスが重要になります。</p>
-        </div>
-        <div class="rule-item">
-          <strong>3. ガチャとデッキ強化</strong>
-          <p>対戦に勝利するとコイン（💰2C）を獲得できます。コインでガチャを回して新たな効果を入手し、デッキをカスタマイズして勝利を目指しましょう！</p>
+        <div class="garapon-stand"></div>
+        <div class="garapon-tray">
+          <div id="garaponBallContainer" class="ball-container"></div>
         </div>
       </div>
-      <button class="close-btn" style="margin-top: 12px;" onclick="closeRulesModal()">閉じる</button>
+
+      <div id="garaponStatus" class="garapon-status">ガラポンを回しています...</div>
+      <button id="garaponCloseBtn" class="main-btn" style="display:none; margin-top:15px;" onclick="closeGaraponModal()">結果画面へ進む</button>
     </div>
   </div>
 
